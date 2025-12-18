@@ -1,5 +1,6 @@
 from enum import Enum
 import htmlnode
+import re
 
 class TextType(Enum):
     TEXT = 'text'
@@ -11,7 +12,7 @@ class TextType(Enum):
     IMAGE = 'image'
 
 class TextNode:
-    def __init__(self, text_contents: str, text_type: TextType, this_url: str=None):
+    def __init__(self, text_contents: str, text_type: TextType, this_url: str|None=None):
         self.text = text_contents
         self.type = text_type
         self.url = this_url
@@ -38,17 +39,27 @@ def text_node_to_html_node(text_node) -> htmlnode.LeafNode:
             return htmlnode.LeafNode(tag='img', value='', props={'src': text_node.url, 'alt': text_node.text})
     raise ValueError('Invalid TextNode specifications')
         
-        
+def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, delimiter_type: TextType) -> list[TextNode]:
+    new_text_nodes: list[TextNode] = list()
+    for node in old_nodes:
+        if node.type != TextType.TEXT:
+            new_text_nodes.append(node)
+        else:
+            text_portions = node.text.split(delimiter)
+            if len(text_portions) % 2 == 0:
+                raise ValueError('Open delimeter is not closed')
+            for i, text_portion in enumerate(text_portions):
+                if i % 2 == 0:
+                    new_text_nodes.append(TextNode(text_portion, TextType.TEXT))
+                else:
+                    new_text_nodes.append(TextNode(text_portion, delimiter_type))
+    return new_text_nodes
 
+def extract_markdown_images(markdown_text: str) -> list[tuple[str, str]]:
+    matches = re.findall(r'\!\[(.+?)\]\((.+?)\)', markdown_text)
+    return matches
 
-'''
-It should handle each type of the TextType enum. If it gets a TextNode that is none of those types, it should raise an exception. 
-Otherwise, it should return a new LeafNode object.
+def extract_markdown_links(markdown_text: str) -> list[tuple[str, str]]:
+    matches = re.findall(r'(?<!!)\[(.+?)]\((.+?)\)', markdown_text)
+    return matches
 
-TextType.TEXT: This should return a LeafNode with no tag, just a raw text value.
-TextType.BOLD: This should return a LeafNode with a "b" tag and the text
-TextType.ITALIC: "i" tag, text
-TextType.CODE: "code" tag, text
-TextType.LINK: "a" tag, anchor text, and "href" prop
-TextType.IMAGE: "img" tag, empty string value, "src" and "alt" props ("src" is the image URL, "alt" is the alt text)
-'''
