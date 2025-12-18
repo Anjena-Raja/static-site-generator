@@ -63,3 +63,38 @@ def extract_markdown_links(markdown_text: str) -> list[tuple[str, str]]:
     matches = re.findall(r'(?<!!)\[(.+?)]\((.+?)\)', markdown_text)
     return matches
 
+
+def split_nodes_for_link_or_image(old_nodes: list[TextNode], is_link: bool) -> list[TextNode]:
+    new_text_nodes = list()
+    for old_node in old_nodes:
+        if is_link:
+            matches = extract_markdown_links(old_node.text)
+        else:
+            matches = extract_markdown_images(old_node.text)
+
+        unparsed_text = old_node.text
+        for alt_text, url in matches:
+            if is_link:
+                non_link_text = unparsed_text[:unparsed_text.find(alt_text) - 1]
+            else:
+                non_link_text = unparsed_text[:unparsed_text.find(alt_text) - 2]
+
+            unparsed_text = unparsed_text[unparsed_text.find(url) + len(url) + 1:]
+            if len(non_link_text) > 0:
+                new_text_nodes.append(TextNode(non_link_text, old_node.type))
+            
+            if is_link:
+                new_text_nodes.append(TextNode(alt_text, TextType.LINK, url))
+            else:
+                new_text_nodes.append(TextNode(alt_text, TextType.IMAGE, url))
+
+        if len(unparsed_text) > 0:
+            new_text_nodes.append(TextNode(unparsed_text, old_node.type))
+    return new_text_nodes
+
+def split_nodes_link(old_nodes: list[TextNode]) -> list[TextNode]:
+    return split_nodes_for_link_or_image(old_nodes, True)
+    
+
+def split_nodes_image(old_nodes: list[TextNode]) -> list[TextNode]:
+    return split_nodes_for_link_or_image(old_nodes, False)
