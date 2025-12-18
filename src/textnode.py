@@ -4,9 +4,8 @@ import re
 
 class TextType(Enum):
     TEXT = 'text'
-    PLAIN = 'plain'
     BOLD = 'bold'
-    ITALICS = 'italics'
+    ITALIC = 'italics'
     CODE = 'code'
     LINK = 'link'
     IMAGE = 'image'
@@ -29,7 +28,7 @@ def text_node_to_html_node(text_node) -> htmlnode.LeafNode:
             return htmlnode.LeafNode(tag=None, value=text_node.text)
         case TextType.BOLD:
             return htmlnode.LeafNode(tag='b', value=text_node.text)
-        case TextType.ITALICS:
+        case TextType.ITALIC:
             return htmlnode.LeafNode(tag='i', value=text_node.text)
         case TextType.CODE:
             return htmlnode.LeafNode(tag='code', value=text_node.text)
@@ -64,9 +63,12 @@ def extract_markdown_links(markdown_text: str) -> list[tuple[str, str]]:
     return matches
 
 
-def split_nodes_for_link_or_image(old_nodes: list[TextNode], is_link: bool) -> list[TextNode]:
+def _split_nodes_for_link_or_image(old_nodes: list[TextNode], is_link: bool) -> list[TextNode]:
     new_text_nodes = list()
     for old_node in old_nodes:
+        if old_node.type in (TextType.LINK, TextType.IMAGE):
+            new_text_nodes.append(old_node)
+            continue
         if is_link:
             matches = extract_markdown_links(old_node.text)
         else:
@@ -93,8 +95,21 @@ def split_nodes_for_link_or_image(old_nodes: list[TextNode], is_link: bool) -> l
     return new_text_nodes
 
 def split_nodes_link(old_nodes: list[TextNode]) -> list[TextNode]:
-    return split_nodes_for_link_or_image(old_nodes, True)
+    return _split_nodes_for_link_or_image(old_nodes, True)
     
 
 def split_nodes_image(old_nodes: list[TextNode]) -> list[TextNode]:
-    return split_nodes_for_link_or_image(old_nodes, False)
+    return _split_nodes_for_link_or_image(old_nodes, False)
+
+def text_to_textnodes(markdown: str) -> list[TextNode]:
+    delimiter_dict: dict[str, TextType] = {'**': TextType.BOLD, 
+                                           '_': TextType.ITALIC, 
+                                           '`': TextType.CODE}
+    nodes = [TextNode(markdown, TextType.TEXT)]
+    for delimiter, text_type in delimiter_dict.items():
+        nodes = split_nodes_delimiter(nodes, delimiter, text_type)
+    
+    nodes = split_nodes_link(nodes)
+    nodes = split_nodes_image(nodes)
+
+    return nodes
